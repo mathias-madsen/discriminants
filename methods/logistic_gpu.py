@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from time import perf_counter
+from tqdm import tqdm
 
 from methods.lda import linear_discriminant
 from methods.mlp import BinaryClassificationDataset
@@ -39,7 +40,7 @@ def newton_solve(x0, x1, max_iter=100, min_loss=1e-5, ftol=1e-5):
     x, y = make_xy(x0, x1)
     z = y[:, None] * add_ones(x)
 
-    for iteration in range(max_iter):
+    for iteration in tqdm(range(max_iter), leave=False):
 
         f = torch.mean(softplus(-z @ w))
         new_loss = float(f.cpu().detach().numpy())

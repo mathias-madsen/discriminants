@@ -4,6 +4,8 @@ from scipy.optimize import minimize
 
 from methods.lda import linear_discriminant
 from methods.logistic import LogisticOptimizer
+from methods.logistic_gpu import newton_solve
+from methods.mlp import sgd_optimize
 
 
 if __name__ == "__main__":
@@ -13,7 +15,7 @@ if __name__ == "__main__":
 
         print(f"Experiment number {iteration + 1}\n")
 
-        dim = 300
+        dim = 500
         n1 = n0 = 1000
         mu1, mu2 = np.random.normal(size=(2, dim)) / np.sqrt(dim)
         x1 = np.random.normal(size=(n1, dim), loc=mu1)
@@ -28,21 +30,29 @@ if __name__ == "__main__":
         slope, intercept = linear_discriminant(x0, x1)
         final_params = np.concatenate([slope, [intercept]])
         dur = perf_counter() - start
-        print("Fisher linear descriminant solved in %.3fs" % (dur,))
+        print("Fisher linear descriminant solved in %.5f s" % (dur,))
         # print("Accuracy: %.5f" % opt.accuracy(final_params))
         # print("Mean neg log prob: %.5f" % opt.mean_neg_log_prob(final_params))
         # print("Geomean probability: %.5f" % opt.geometric_mean_prob(final_params))
         # print()
 
         start = perf_counter()
-        slope, intercept = opt.newton_solve()
-        final_params = np.concatenate([slope, [intercept]])
+        params = newton_solve(x0, x1)
+        slope = params[:-1].detach().cpu().numpy()
+        intercept = params[-1].detach().cpu().numpy()
+        # slope, intercept = opt.newton_solve()
+        # final_params = np.concatenate([slope, [intercept]])
         dur = perf_counter() - start
-        print("Newton-logistic solved in %.3fs" % (dur,))
+        print("Newton-logistic solved in %.5f s" % (dur,))
         # print("Accuracy: %.5f" % opt.accuracy(final_params))
         # print("Mean neg log prob: %.5f" % opt.mean_neg_log_prob(final_params))
         # print("Geomean probability: %.5f" % opt.geometric_mean_prob(final_params))
         # print()
+
+        start = perf_counter()
+        sgd_optimize(x0, x1)
+        dur = perf_counter() - start
+        print("SGD-MLP solved in %.5f s" % (dur,))
 
         # start = perf_counter()
         # x0 = np.random.normal(size=(dim + 1))
