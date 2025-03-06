@@ -20,11 +20,12 @@ def add_ones(vectors):
 
 class LogisticOptimizer:
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, regweight=0.0):
         self.x = x
         self.y = y
         self.z = y[:, None] * add_ones(x)
         _, self.dim = self.z.shape
+        self.regweight = regweight
 
     def mean_neg_log_prob(self, w):
         """ Mean negative log-probability of the correct class label. """
@@ -56,17 +57,16 @@ class LogisticOptimizer:
         # ssm = prob_correct[:, None, None] * prob_wrong[:, None, None]
         # zzT = self.z[:, :, None] * self.z[:, None, :]
         # ddf = np.sum(ssm * zzT, axis=0)
-        return f, df, ddf
+        dim, = w.shape
+        r = self.regweight * np.sum(w ** 2)
+        dr = 2 * self.regweight * w
+        ddr = 2 * self.regweight * np.eye(dim)
+        return f + r, df + dr, ddf + ddr
 
-    def newton_update(self, w, epsilon=1e-8):
+    def newton_update(self, w):
         """ Compute current loss and updated parameter. """
         f, df, ddf = self.compute_derivatives(w)
-        # mixing the Hessian with a small proportion of the identity matrix
-        # causes its Eigenvalues to shift slightly towards 1., which in turn
-        # causes the Newton step lengths to be biased towards a plain gradient
-        # step instead of a second-derivative modulated gradient step.
-        safe_hessian = (1 - epsilon)*ddf + epsilon*np.eye(self.dim)
-        dw = np.linalg.solve(safe_hessian, df)
+        dw = np.linalg.solve(ddf, df)
         return f, w - dw
 
     def newton_solve(self, min_iter=5, max_iter=30, ftol=1e-5, min_loss=1e-5, verbose=False):
@@ -93,13 +93,13 @@ class LogisticOptimizer:
         return slope, intercept
 
 
-def newton_solve(x0, x1, equal_prior=False, verbose=False):
+def newton_solve(x0, x1, equal_prior=False, verbose=False, regweight=1.0):
     x = np.concatenate([x0, x1], axis=0)
     if len(x.shape) == 1:
         x = x[:, None]
     y = np.array([-1]*len(x0) + [+1]*len(x1))
     assert len(x) == len(y)
-    opt = LogisticOptimizer(x, y)
+    opt = LogisticOptimizer(x, y, regweight=regweight)
     slope, intercept = opt.newton_solve(verbose=verbose)
     if equal_prior:
         intercept -= np.log(len(x1)) - np.log(len(x0))
